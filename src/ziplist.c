@@ -76,18 +76,33 @@
  * ZIPLIST ENTRIES
  * ===============
  *
+ * ZIPLIST 节点
+ *
  * Every entry in the ziplist is prefixed by metadata that contains two pieces
  * of information. First, the length of the previous entry is stored to be
  * able to traverse the list from back to front. Second, the entry encoding is
  * provided. It represents the entry type, integer or string, and in the case
  * of strings it also represents the length of the string payload.
+ *
+ * 每个 ziplist 节点的前面都带有一个 header，这个 header 包含两部分信息：
+ *
+ * 1) 前置节点的长度，在程序从后向前遍历时使用。
+ *
+ * 2) 当前节点所保存值得类型和长度。
+ *
  * So a complete entry is stored like this:
+ *
+ * 所以一个完整的节点是这样存储的：
  *
  * <prevlen> <encoding> <entry-data>
  *
  * Sometimes the encoding represents the entry itself, like for small integers
  * as we'll see later. In such a case the <entry-data> part is missing, and we
  * could have just:
+ *
+ * 有时候 encoding 代表着节点本身存储的值，比如我们后面能够看到的小整数。
+ *
+ * 在这种情况下，节点没有 <entry-data>，就像这样：
  *
  * <prevlen> <encoding>
  *
@@ -98,12 +113,24 @@
  * set to 254 (FE) to indicate a larger value is following. The remaining 4
  * bytes take the length of the previous entry as value.
  *
+ * 前置节点的长度 <prevlen> 按照以下方式进行编码：
+ *
+ * 1) 如果前置节点的长度小于 254 字节，那么程序将使用一个无符号的单字节整数来保存长度值。
+ *
+ * 2) 如果前置节点的长度大于或等于 254，它将使用 5 个字节来保存长度值：
+ *    a) 第一个字节设置为 254 (FE)，用于标识这是一个 5 个字节长的长度值。
+ *    b) 剩余的 4 个字节用来保存前置节点的实际长度。
+ *
  * So practically an entry is encoded in the following way:
+ *
+ * 所以实际上节点是按照以下方式编码的：
  *
  * <prevlen from 0 to 253> <encoding> <entry>
  *
  * Or alternatively if the previous entry length is greater than 253 bytes
  * the following encoding is used:
+ *
+ * 或者，如果前一个节点长度大于 253 字节，则使用以下编码：
  *
  * 0xFE <4 bytes unsigned little endian prevlen> <encoding> <entry>
  *
@@ -116,36 +143,67 @@
  * different types and encodings is as follows. The first byte is always enough
  * to determine the kind of entry.
  *
+ * 节点的 encoding 字段取决于节点的内容。
+ *
+ * 不同类型和编码的概述如下，第 1 个字节就足以标识节点的类型。
+ *
+ * 1) 如果节点保存的是字符串，
+ *    encoding 第一个字节的前 2 个位用来存储字符串长度的编码类型，
+ *    而之后跟着的内容则是字符串的实际长度。
+ *
  * |00pppppp| - 1 byte
  *      String value with length less than or equal to 63 bytes (6 bits).
  *      "pppppp" represents the unsigned 6 bit length.
+ *      字符串的长度小于或等于 63 字节（字符串的长度占用 6 位）。
+ *      “pppp” 表示无符号 6 位长度。
  * |01pppppp|qqqqqqqq| - 2 bytes
  *      String value with length less than or equal to 16383 bytes (14 bits).
  *      IMPORTANT: The 14 bit number is stored in big endian.
+ *      字符串的长度小于或等于 16383 字节（字符串的长度占用 14 位）。
+ *      重要：14 位的数字以大端模式存储。
  * |10000000|qqqqqqqq|rrrrrrrr|ssssssss|tttttttt| - 5 bytes
  *      String value with length greater than or equal to 16384 bytes.
  *      Only the 4 bytes following the first byte represents the length
  *      up to 32^2-1. The 6 lower bits of the first byte are not used and
  *      are set to zero.
  *      IMPORTANT: The 32 bit number is stored in big endian.
+ *      字符串的长度大于或等于 16384 字节。
+ *      只有第 1 个字节后面的 4 个字节表示长度，最大为 32^2-1。
+ *      第 1 个字节的低 6 位不使用，设置为 0。
+ *      重要：32 位数字以大端模式存储。
+ *
+ * 2) 如果节点保存的是整数值，将前 2 位都设置为 1。
+ *    而之后跟着的 2 位用于标识节点所保存的整数的类型。
+ *
  * |11000000| - 3 bytes
  *      Integer encoded as int16_t (2 bytes).
+ *      节点的值为 int16_t 类型的整数，长度为 2 字节。
  * |11010000| - 5 bytes
  *      Integer encoded as int32_t (4 bytes).
+ *      节点的值为 int32_t 类型的整数，长度为 4 字节。
  * |11100000| - 9 bytes
  *      Integer encoded as int64_t (8 bytes).
+ *      节点的值为 int64_t 类型的整数，长度为 8 字节。
  * |11110000| - 4 bytes
  *      Integer encoded as 24 bit signed (3 bytes).
+ *      节点的值为 24 位（3 字节）长的整数。
  * |11111110| - 2 bytes
  *      Integer encoded as 8 bit signed (1 byte).
+ *      节点的值为 8 位（1 字节）长的整数。
  * |1111xxxx| - (with xxxx between 0000 and 1101) immediate 4 bit integer.
  *      Unsigned integer from 0 to 12. The encoded value is actually from
  *      1 to 13 because 0000 and 1111 can not be used, so 1 should be
  *      subtracted from the encoded 4 bit value to obtain the right value.
+ *      节点的值为介于 0 至 12 的无符号整数，因为 0000 和 1111 都不能使用，所以实际值是 1 至 13。
+ *      在取得这 4 个位的值之后，还要减去 1，才能的到正确的值。
+ *      比如说，如果位的值为 0001，还要需要减去 1，那么实际的值为 1 - 1 = 0。
  * |11111111| - End of ziplist special entry.
+ *      ziplist 特殊的结尾标识。
  *
  * Like for the ziplist header, all the integers are represented in little
  * endian byte order, even when this code is compiled in big endian systems.
+ *
+ * 与 ziplist 头一样，所有的整数都是以小端模式表示的，即使这段代码是在大端系统中编译的。
  *
  * EXAMPLES OF ACTUAL ZIPLISTS
  * ===========================
