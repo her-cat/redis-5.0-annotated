@@ -115,10 +115,10 @@
  *
  * 前置节点的长度 <prevlen> 按照以下方式进行编码：
  *
- * 1) 如果前置节点的长度小于 254 字节，那么程序将使用 1 个字节来保存长度值。
+ * 1) 如果前置节点的长度小于 254 字节，那么程序将使用 1 个字节来保存这个长度值。
  *
  * 2) 如果前置节点的长度大于或等于 254，它将使用 5 个字节来保存长度值：
- *    a) 第一个字节设置为 254 (FE)，用于标识这是一个 5 个字节长的长度值。
+ *    a) 第 1 个字节设置为 254 (FE)，用于标识这是一个 5 个字节长的长度值。
  *    b) 剩余的 4 个字节用来保存前置节点的实际长度。
  *
  * So practically an entry is encoded in the following way:
@@ -207,43 +207,82 @@
  *
  * EXAMPLES OF ACTUAL ZIPLISTS
  * ===========================
+ * 实际 ziplist 示例
  *
  * The following is a ziplist containing the two elements representing
  * the strings "2" and "5". It is composed of 15 bytes, that we visually
  * split into sections:
+ *
+ * 下面是一个 ziplist，包含字符串 "2" 和 "5" 两个元素。
+ * 它由 15 个字节组成，我们可以直观的将其分为几个部分：
  *
  *  [0f 00 00 00] [0c 00 00 00] [02 00] [00 f3] [02 f6] [ff]
  *        |             |          |       |       |     |
  *     zlbytes        zltail    entries   "2"     "5"   end
  *
  * The first 4 bytes represent the number 15, that is the number of bytes
- * the whole ziplist is composed of. The second 4 bytes are the offset
+ * the whole ziplist is composed of.
+ *
+ * 前 4 个字节表示数字 15，也就是整个 ziplist 所包含的字节数。
+ *
+ * The second 4 bytes are the offset
  * at which the last ziplist entry is found, that is 12, in fact the
  * last entry, that is "5", is at offset 12 inside the ziplist.
+ *
+ * 第二个 4 字节是找到最后一个 ziplist 节点的偏移量，即 12，实际上最后一个节点是 "5"，位于
+ * ziplist 内部的偏移量 12。
+ *
  * The next 16 bit integer represents the number of elements inside the
  * ziplist, its value is 2 since there are just two elements inside.
+ *
+ * 下一个 16 位的整数表示 ziplist 中的节点数量，它的值是 2，因为 ziplist 里面只有 2 个节点。
+ *
  * Finally "00 f3" is the first entry representing the number 2. It is
  * composed of the previous entry length, which is zero because this is
  * our first entry, and the byte F3 which corresponds to the encoding
  * |1111xxxx| with xxxx between 0001 and 1101. We need to remove the "F"
  * higher order bits 1111, and subtract 1 from the "3", so the entry value
- * is "2". The next entry has a prevlen of 02, since the first entry is
+ * is "2".
+ *
+ * 最后，"00 f3" 表示第 1 个节点，数字 2。它由前一个节点的长度组成，长度为 0，因为这是第一个节点，
+ * 字节 F3 对应于编码 |1111xxxx|，xxxx 在 0001 和 1101 之间。
+ * 我们需要去掉 "F" 高位 1111，然后从 "3" 中减去 1，所以节点的值为 2。
+ *
+ * The next entry has a prevlen of 02, since the first entry is
  * composed of exactly two bytes. The entry itself, F6, is encoded exactly
  * like the first entry, and 6-1 = 5, so the value of the entry is 5.
+ *
+ * 下一个字节的 prevlen 为 02，因为第 1 个节点由 2 个字节组成。
+ * 节点本身 F6 的编码与第 1 个节点完全相同，6-1 = 5，因此节点的值为 5。
+ *
  * Finally the special entry FF signals the end of the ziplist.
+ *
+ * 最后，特殊节点 FF 表示 ziplist 末尾。
  *
  * Adding another element to the above string with the value "Hello World"
  * allows us to show how the ziplist encodes small strings. We'll just show
  * the hex dump of the entry itself. Imagine the bytes as following the
  * entry that stores "5" in the ziplist above:
  *
+ * 在上面的 ziplist 中添加另一个值为字符串 "Hello World" 的元素，
+ * 可以让我们展示 ziplist 如何对小字符串进行编码。
+ *
+ * 我们只显示节点本身的十六进制值。将字节想象成在上面的 ziplist 中存储 "5" 的节点的后面：
+ *
  * [02] [0b] [48 65 6c 6c 6f 20 57 6f 72 6c 64]
  *
- * The first byte, 02, is the length of the previous entry. The next
- * byte represents the encoding in the pattern |00pppppp| that means
+ * The first byte, 02, is the length of the previous entry.
+ *
+ * 第 1 个字节 02，表示上一个节点的长度。
+ *
+ * The next byte represents the encoding in the pattern |00pppppp| that means
  * that the entry is a string of length <pppppp>, so 0B means that
  * an 11 bytes string follows. From the third byte (48) to the last (64)
  * there are just the ASCII characters for "Hello World".
+ *
+ * 下一个字节表示模式 |00pppppp| 中的编码，这意味着节点是长度为 <pppppp> 的字符串，
+ * 所以 0B 意味着后面有一个 11 字节的字符串。
+ * 从第 3 个字节（48）到最后一个字节（64），就是 "Hello World" 的 ASCII 字符。
  *
  * ----------------------------------------------------------------------------
  *
