@@ -493,6 +493,35 @@
         ZIPLIST_LENGTH(zl) = intrev16ifbe(intrev16ifbe(ZIPLIST_LENGTH(zl))+incr); \
 }
 
+/*
+空白 ziplist 示例图
+area        |<---- ziplist header ---->|<-- end -->|
+size          4 bytes   4 bytes 2 bytes  1 byte
+            +---------+--------+-------+-----------+
+component   | zlbytes | zltail | zllen | zlend     |
+            |         |        |       |           |
+value       |  1011   |  1010  |   0   | 1111 1111 |
+            +---------+--------+-------+-----------+
+                                       ^
+                                       |
+                               ZIPLIST_ENTRY_HEAD
+                                       &
+address                        ZIPLIST_ENTRY_TAIL
+                                       &
+                               ZIPLIST_ENTRY_END
+非空 ziplist 示例图
+area        |<---- ziplist header ---->|<----------- entries ------------->|<-end->|
+size          4 bytes  4 bytes  2 bytes    ?        ?        ?        ?     1 byte
+            +---------+--------+-------+--------+--------+--------+--------+-------+
+component   | zlbytes | zltail | zllen | entry1 | entry2 |  ...   | entryN | zlend |
+            +---------+--------+-------+--------+--------+--------+--------+-------+
+                                       ^                          ^        ^
+address                                |                          |        |
+                                ZIPLIST_ENTRY_HEAD                |   ZIPLIST_ENTRY_END
+                                                                  |
+                                                        ZIPLIST_ENTRY_TAIL
+*/
+
 /* We use this function to receive information about a ziplist entry.
  * Note that this is not how the data is actually encoded, is just what we
  * get filled by a function in order to operate more easily. */
