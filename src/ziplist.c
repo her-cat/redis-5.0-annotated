@@ -390,46 +390,104 @@
 #define INT24_MAX 0x7fffff
 #define INT24_MIN (-INT24_MAX - 1)
 
-/* Macro to determine if the entry is a string. String entries never start
- * with "11" as most significant bits of the first byte. */
+/*
+ * Macro to determine if the entry is a string. String entries never start
+ * with "11" as most significant bits of the first byte.
+ *
+ * 通过宏来判断节点是否为字符串。
+ *
+ * 字符串类型的节点绝对不会以 "11" 作为第 1 个字节的最高有效位开始。
+ */
 #define ZIP_IS_STR(enc) (((enc) & ZIP_STR_MASK) < ZIP_STR_MASK)
 
-/* Utility macros.*/
+/*
+ * Utility macros.
+ *
+ * ziplist 属性宏
+ */
 
-/* Return total bytes a ziplist is composed of. */
+/*
+ * Return total bytes a ziplist is composed of.
+ *
+ * 定位到 ziplist 的 zlbytes 属性，该属性记录了 ziplist 占用的总字节数。
+ * 用于取出 zlbytes 属性的现有值，或为 zlbytes 属性赋予新值。
+ */
 #define ZIPLIST_BYTES(zl)       (*((uint32_t*)(zl)))
 
-/* Return the offset of the last item inside the ziplist. */
+/*
+ * Return the offset of the last item inside the ziplist.
+ *
+ * 定位到 ziplist 的 zltail 属性，该属性记录了 ziplist 最后一个节点的偏移量。
+ * 用于取出 zltail 属性的现有值，或为 zltail 属性赋予新值。
+ */
 #define ZIPLIST_TAIL_OFFSET(zl) (*((uint32_t*)((zl)+sizeof(uint32_t))))
 
-/* Return the length of a ziplist, or UINT16_MAX if the length cannot be
- * determined without scanning the whole ziplist. */
+/*
+ * Return the length of a ziplist, or UINT16_MAX if the length cannot be
+ * determined without scanning the whole ziplist.
+ *
+ * 定位到 ziplist 的 zllen 属性，该属性记录了 ziplist 包含的节点数量，
+ *
+ * 如果节点数量超过 UINT16_MAX，zllen 将被设置为 UINT16_MAX，
+ * 并且需要遍历整个 ziplist 才能知道列表实际的节点数量。
+ *
+ * 用于取出 zllen 属性的现有值，或为 zllen 属性赋予新值。
+ */
 #define ZIPLIST_LENGTH(zl)      (*((uint16_t*)((zl)+sizeof(uint32_t)*2)))
 
-/* The size of a ziplist header: two 32 bit integers for the total
+/*
+ * The size of a ziplist header: two 32 bit integers for the total
  * bytes count and last item offset. One 16 bit integer for the number
- * of items field. */
+ * of items field.
+ *
+ * ziplist 表头大小：2 个 32 位无符号整数用来保存总字节数和最后一个节点的偏移量，
+ * 1 个 16 位无符号整数用来保存 ziplist 中包含的节点数量。
+ */
 #define ZIPLIST_HEADER_SIZE     (sizeof(uint32_t)*2+sizeof(uint16_t))
 
-/* Size of the "end of ziplist" entry. Just one byte. */
+/*
+ * Size of the "end of ziplist" entry. Just one byte.
+ *
+ * ziplist 末尾特殊节点的大小。只有 1 个字节。
+ */
 #define ZIPLIST_END_SIZE        (sizeof(uint8_t))
 
-/* Return the pointer to the first entry of a ziplist. */
+/*
+ * Return the pointer to the first entry of a ziplist.
+ *
+ * 返回指向 ziplist 第一个节点（的起始位置）的指针。
+ */
 #define ZIPLIST_ENTRY_HEAD(zl)  ((zl)+ZIPLIST_HEADER_SIZE)
 
-/* Return the pointer to the last entry of a ziplist, using the
- * last entry offset inside the ziplist header. */
+/*
+ * Return the pointer to the last entry of a ziplist, using the
+ * last entry offset inside the ziplist header.
+ *
+ * 返回指向 ziplist 最后一个节点（的起始位置）的指针，使用 ziplist 头中的最后一个节点的偏移量。
+ */
 #define ZIPLIST_ENTRY_TAIL(zl)  ((zl)+intrev32ifbe(ZIPLIST_TAIL_OFFSET(zl)))
 
-/* Return the pointer to the last byte of a ziplist, which is, the
- * end of ziplist FF entry. */
+/*
+ * Return the pointer to the last byte of a ziplist, which is, the
+ * end of ziplist FF entry.
+ *
+ * 返回指向 ziplist 的最后一个字节的指针，即 ziplist FF 节点的结尾。
+ */
 #define ZIPLIST_ENTRY_END(zl)   ((zl)+intrev32ifbe(ZIPLIST_BYTES(zl))-1)
 
 /* Increment the number of items field in the ziplist header. Note that this
  * macro should never overflow the unsigned 16 bit integer, since entries are
  * always pushed one at a time. When UINT16_MAX is reached we want the count
  * to stay there to signal that a full scan is needed to get the number of
- * items inside the ziplist. */
+ * items inside the ziplist.
+ *
+ * 增加 ziplist 头中的节点数字段的值。
+ *
+ * 注意，使用该宏时不应该使无符号 16 位整数溢出，因为总是一次推送一个字节。
+ * 当字节数达到 UINT16_MAX 时，应该让计数保持在那里，
+ * 以表示需要遍历整个 ziplist 才能知道实际的节点数量。
+ *
+ */
 #define ZIPLIST_INCR_LENGTH(zl,incr) { \
     if (ZIPLIST_LENGTH(zl) < UINT16_MAX) \
         ZIPLIST_LENGTH(zl) = intrev16ifbe(intrev16ifbe(ZIPLIST_LENGTH(zl))+incr); \
