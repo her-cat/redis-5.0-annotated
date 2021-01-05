@@ -326,33 +326,67 @@
 #include "endianconv.h"
 #include "redisassert.h"
 
-#define ZIP_END 255         /* Special "end of ziplist" entry. */
-#define ZIP_BIG_PREVLEN 254 /* Max number of bytes of the previous entry, for
-                               the "prevlen" field prefixing each entry, to be
-                               represented with just a single byte. Otherwise
-                               it is represented as FF AA BB CC DD, where
-                               AA BB CC DD are a 4 bytes unsigned integer
-                               representing the previous entry len. */
+/*
+ * Special "end of ziplist" entry.
+ *
+ * 特殊节点 0xFF， 表示 ziplist 末尾。
+ */
+#define ZIP_END 255
 
-/* Different encoding/length possibilities */
+/*
+ * Max number of bytes of the previous entry, for
+ * the "prevlen" field prefixing each entry, to be
+ * represented with just a single byte. Otherwise
+ * it is represented as FF AA BB CC DD, where
+ * AA BB CC DD are a 4 bytes unsigned integer
+ * representing the previous entry len.
+ *
+ * 前置节点最大字节数。
+ *
+ * 对于每个字节前的 pervlen 字段，仅用 1 个字节表示。
+ *
+ * 否则它表示为 FF AA BB CC DD，其中 AA BB CC DD
+ * 是一个 4 字节无符号整数，表示前置节点的长度。
+ *
+ */
+#define ZIP_BIG_PREVLEN 254
+
+/*
+ * 字符串编码和整数编码的掩码
+ */
 #define ZIP_STR_MASK 0xc0
 #define ZIP_INT_MASK 0x30
+
+/*
+ * 字符串编码类型
+ */
 #define ZIP_STR_06B (0 << 6)
 #define ZIP_STR_14B (1 << 6)
 #define ZIP_STR_32B (2 << 6)
+
+/*
+ * 整数编码类型
+ */
 #define ZIP_INT_16B (0xc0 | 0<<4)
 #define ZIP_INT_32B (0xc0 | 1<<4)
 #define ZIP_INT_64B (0xc0 | 2<<4)
 #define ZIP_INT_24B (0xc0 | 3<<4)
 #define ZIP_INT_8B 0xfe
 
-/* 4 bit integer immediate encoding |1111xxxx| with xxxx between
- * 0001 and 1101. */
+/*
+ * 4 bit integer immediate encoding |1111xxxx| with xxxx between
+ * 0001 and 1101.
+ *
+ * 4 位整数编码 |1111xxxx|，xxxx 介于 0001 和 1101 之间。
+ */
 #define ZIP_INT_IMM_MASK 0x0f   /* Mask to extract the 4 bits value. To add
                                    one is needed to reconstruct the value. */
 #define ZIP_INT_IMM_MIN 0xf1    /* 11110001 */
 #define ZIP_INT_IMM_MAX 0xfd    /* 11111101 */
 
+/*
+ * 24 位整数的最大值和最小值
+ */
 #define INT24_MAX 0x7fffff
 #define INT24_MIN (-INT24_MAX - 1)
 
